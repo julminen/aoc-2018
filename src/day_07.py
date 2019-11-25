@@ -1,12 +1,13 @@
 from typing import List, Set, Tuple, Dict
 from aoc_utils import read_input_file
-
+import copy
 
 class Node:
     def __init__(self, name):
         self.name = name
         self.pre = list()
         self.post = list()
+        self.task_len = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.index(name) + 1 + 60
     
     def __eq__(self, other):
         return other is not None and self.name == other.name
@@ -15,10 +16,10 @@ class Node:
         return other is not None and self.name < other.name
     
     def __str__(self):
-        return f'{self.name}: Pre: {self.pre}, Post: {self.post}'
+        return f'{self.name}: Pre: {self.pre}, Post: {self.post}, task length: {self.task_len}'
     
     def __repr__(self):
-        return f'{self.name}: pre {self.pre}, post: {self.post}'
+        return str(self)
     
     def run(self, ready_nodes, graph):
         if self.pre:
@@ -52,7 +53,7 @@ def create_graph(lines: List[str]) -> Dict[str, Node]:
 
 
 def phase_1(graph: Dict[str, Node]) -> str:
-    ready_nodes: List[Node] = sorted([n for n in graph.values() if len(n.pre) == 0])
+    ready_nodes: List[Node] = sorted([n for n in graph.values() if not n.pre])
     done: List[str] = list()
 
     while ready_nodes:
@@ -64,7 +65,42 @@ def phase_1(graph: Dict[str, Node]) -> str:
     return ''.join(done)
 
 
+def phase_2(graph: Dict[str, Node], workers: int) -> int:
+    runnable_nodes: List[Node] = list()
+    task_schedule: Dict[int, Node] = dict()
+    current_tick: int
+    idle_workers = workers
+
+    for node in sorted([n for n in graph.values() if not n.pre]):
+        if idle_workers > 0:
+            task_schedule[node.task_len] = [node]
+            idle_workers -= 1
+        else:
+            runnable_nodes.append(node)
+
+    while task_schedule:
+        current_tick = min(task_schedule.keys())
+        ready_nodes: List[Node] = task_schedule.pop(current_tick)
+        idle_workers += len(ready_nodes)
+        for rn in ready_nodes:
+            rn.run(runnable_nodes, graph)
+        runnable_nodes.sort()
+        while idle_workers > 0:
+            if not runnable_nodes:
+                break
+            n = runnable_nodes.pop(0)
+            work_list: List[Node] = task_schedule.get(n.task_len, list())
+            work_list.append(n)
+            task_schedule[current_tick + n.task_len] = work_list
+            idle_workers = idle_workers - 1
+
+    return current_tick
+
+
 if __name__ == "__main__":
     lines = read_input_file('07')
     graph = create_graph(lines)
-    print(f'Phase 1: {phase_1(graph)}')
+    print(f'Phase 1: {phase_1(copy.deepcopy(graph))}')
+    # JDEKPFABTUHOQSXVYMLZCNIGRW
+    print(f'Phase 2: {phase_2(graph, workers=5)}')
+    # 1048
